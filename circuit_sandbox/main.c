@@ -60,31 +60,31 @@ struct d_type_flip_flop {
     uint8_t state : 1;
 };
 
-void d_type_flip_flop_set_pin_state(struct d_type_flip_flop* gate, uint8_t pin, uint8_t state)
+void d_type_flip_flop_set_pin_state(struct d_type_flip_flop* flip_flop, uint8_t pin, uint8_t state)
 {
     switch (pin) {
         case D_TYPE_FLIP_FLOP_PIN_D:
-            gate->d = state;
+            flip_flop->d = state;
             break;
         case D_TYPE_FLIP_FLOP_PIN_E:
-            gate->e = state;
+            flip_flop->e = state;
             break;
     }
 }
 
-void d_type_flip_flop_update(struct d_type_flip_flop* gate)
+void d_type_flip_flop_update(struct d_type_flip_flop* flip_flop)
 {
-    gate->q = (((gate->d ^ ~gate->e) & ~(gate->e ^ gate->d)) & (gate->state & ~gate->e)) | (gate->d & gate->e);
-    gate->q_ = ~gate->q;
-    gate->state = gate->q;
+    flip_flop->q = (((flip_flop->d ^ ~flip_flop->e) & ~(flip_flop->e ^ flip_flop->d)) & (flip_flop->state & ~flip_flop->e)) | (flip_flop->d & flip_flop->e);
+    flip_flop->q_ = ~flip_flop->q;
+    flip_flop->state = flip_flop->q;
 }
 
 #define TIME_STEP 3
 
 int main(void)
 {
-    struct d_type_flip_flop gate_a;
-    memset(&gate_a, 0, sizeof gate_a);
+    struct d_type_flip_flop flip_flop_a;
+    memset(&flip_flop_a, 0, sizeof flip_flop_a);
 
     time_t updated_time, current_time;
     time(&updated_time);
@@ -92,18 +92,28 @@ int main(void)
     while (1) {
         time(&current_time);
         while (current_time - updated_time > TIME_STEP) {
-            if (gate_a.q == PIN_LOW) {
-                d_type_flip_flop_set_pin_state(&gate_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_HIGH);
-                d_type_flip_flop_set_pin_state(&gate_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
+            if (flip_flop_a.q == PIN_LOW) {
+                d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_HIGH);
+                if (flip_flop_a.e == PIN_HIGH) {
+                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_LOW);
+                }
+                else {
+                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
+                }
             }
             else {
-                d_type_flip_flop_set_pin_state(&gate_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_LOW);
-                d_type_flip_flop_set_pin_state(&gate_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
+                d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_LOW);
+                if (flip_flop_a.e == PIN_HIGH) {
+                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_LOW);
+                }
+                else {
+                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
+                }
             }
 
-            d_type_flip_flop_update(&gate_a);
+            d_type_flip_flop_update(&flip_flop_a);
 
-            printf("state\nd: %u\ne: %u\n\nq: %u\nq_:%u\n\n", gate_a.d, gate_a.e, gate_a.q, gate_a.q_);
+            printf("state\nd: %u\ne: %u\n\nq: %u\nq_:%u\n\n", flip_flop_a.d, flip_flop_a.e, flip_flop_a.q, flip_flop_a.q_);
 
             updated_time += TIME_STEP;
         }
