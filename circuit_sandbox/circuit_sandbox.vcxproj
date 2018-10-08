@@ -21,6 +21,14 @@
   <ItemGroup>
     <ClCompile Include="main.c" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\adders.h" />
+    <ClInclude Include="source\addr_decoders.h" />
+    <ClInclude Include="source\flip_flops.h" />
+    <ClInclude Include="source\logic_gates.h" />
+    <ClInclude Include="source\memory.h" />
+    <ClInclude Include="source\miscellaneous.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{AA37DABF-1348-4463-A0F6-85FDF53CE822}</ProjectGuid>

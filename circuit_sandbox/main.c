@@ -1,3 +1,5 @@
+#include "source/memory.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -7,119 +9,104 @@
 
 #include <time.h>
 
-#define VCC     0x0000001
-#define CLK     0x0000002
-#define WR      0x0000004
-#define RD      0x0000008
-#define CS      0x0000010
-
-#define A0      0x0000020
-#define A1      0x0000040
-#define A2      0x0000080
-#define A3      0x0000100
-#define A4      0x0000200
-#define A5      0x0000400
-#define A6      0x0000800
-#define A7      0x0001000
-#define A8      0x0002000
-#define A9      0x0004000
-#define A10     0x0008000
-#define A11     0x0010000
-#define A12     0x0020000
-#define A13     0x0040000
-#define A14     0x0080000
-#define A15     0x0100000
-
-#define D0      0x00200000
-#define D1      0x00400000
-#define D2      0x00800000
-#define D3      0x01000000
-#define D4      0x02000000
-#define D5      0x04000000
-#define D6      0x08000000
-#define D7      0x10000000
-
-#define RESET   0x20000000
-#define AUDIO   0x40000000
-#define GND     0x80000000
-
-
-#define D_TYPE_FLIP_FLOP_PIN_D 0x01
-#define D_TYPE_FLIP_FLOP_PIN_E 0x02
-
-#define PIN_LOW  0
-#define PIN_HIGH 1
-
-struct d_type_flip_flop {
-    uint8_t d : 1;
-    uint8_t e : 1;
-
-    uint8_t q : 1;
-    uint8_t q_ : 1;
-
-    uint8_t state : 1;
-};
-
-void d_type_flip_flop_set_pin_state(struct d_type_flip_flop* flip_flop, uint8_t pin, uint8_t state)
-{
-    switch (pin) {
-        case D_TYPE_FLIP_FLOP_PIN_D:
-            flip_flop->d = state;
-            break;
-        case D_TYPE_FLIP_FLOP_PIN_E:
-            flip_flop->e = state;
-            break;
-    }
-}
-
-void d_type_flip_flop_update(struct d_type_flip_flop* flip_flop)
-{
-    flip_flop->q = (((flip_flop->d ^ ~flip_flop->e) & ~(flip_flop->e ^ flip_flop->d)) & (flip_flop->state & ~flip_flop->e)) | (flip_flop->d & flip_flop->e);
-    flip_flop->q_ = ~flip_flop->q;
-    flip_flop->state = flip_flop->q;
-}
-
-#define TIME_STEP 3
+#define CLK_FREQ 2
 
 int main(void)
 {
-    struct d_type_flip_flop flip_flop_a;
-    memset(&flip_flop_a, 0, sizeof flip_flop_a);
+    pin_out_t rd = PIN_LOW;
+    pin_out_t wr = PIN_HIGH;
+    pin_out_t addr_pins[] = { PIN_HIGH, PIN_HIGH, PIN_LOW, PIN_LOW };
+    pin_in_out_t data_pins[] = { {NULL, PIN_LOW}, {NULL, PIN_HIGH}, {NULL, PIN_HIGH}, {NULL, PIN_LOW}, {NULL, PIN_LOW}, 
+    {NULL, PIN_LOW}, {NULL, PIN_LOW}, { NULL, PIN_HIGH} };
 
-    time_t updated_time, current_time;
-    time(&updated_time);
+    struct sram_chip sram_chip;
+    sram_chip_initialize(&sram_chip, &rd, &wr, addr_pins, data_pins);
 
-    while (1) {
-        time(&current_time);
-        while (current_time - updated_time > TIME_STEP) {
-            if (flip_flop_a.q == PIN_LOW) {
-                d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_HIGH);
-                if (flip_flop_a.e == PIN_HIGH) {
-                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_LOW);
-                }
-                else {
-                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
-                }
-            }
-            else {
-                d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_D, PIN_LOW);
-                if (flip_flop_a.e == PIN_HIGH) {
-                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_LOW);
-                }
-                else {
-                    d_type_flip_flop_set_pin_state(&flip_flop_a, D_TYPE_FLIP_FLOP_PIN_E, PIN_HIGH);
-                }
-            }
+    sram_chip_update(&sram_chip);
 
-            d_type_flip_flop_update(&flip_flop_a);
+    printf("address pins: ");
+    for (uint8_t i = 0; i < 4; ++i) {
+        printf("%u ", (uint8_t)(~addr_pins[i] + 1));
+    }
 
-            printf("state\nd: %u\ne: %u\n\nq: %u\nq_:%u\n\n", flip_flop_a.d, flip_flop_a.e, flip_flop_a.q, flip_flop_a.q_);
+    printf("\n\ndata pins: ");
+    for (uint8_t i = 0; i < 8; ++i) {
+        printf("%u ", (uint8_t)(~data_pins[i].out + 1));
+    }
 
-            updated_time += TIME_STEP;
+
+    printf("\n\nmemory\n");
+    for (uint8_t j = 0; j < 8; ++j) {
+        printf("%04xh\t", j);
+        for (uint8_t k = 0; k < 8; ++k) {
+            printf("%u ", (uint8_t)(~sram_chip.s_mem_cells[j].flip_flops[k].q + 1));
         }
-
-        time(&current_time);
+        printf("\n");
     }
 
     return 0;
 }
+
+//    sram_chip_update(&sram_chip);
+//
+//    sram_chip.wr.state = PIN_HIGH;
+//    sram_chip.addr_lns[0].state = PIN_LOW;
+//    sram_chip.addr_lns[1].state = PIN_HIGH;
+//    sram_chip.addr_lns[2].state = PIN_LOW;
+//    sram_chip.addr_lns[3].state = PIN_LOW;
+//
+//    sram_chip.data_lns[7].state = PIN_LOW;
+//    sram_chip.data_lns[6].state = PIN_HIGH;
+//    sram_chip.data_lns[5].state = PIN_HIGH;
+//    sram_chip.data_lns[4].state = PIN_LOW;
+//    sram_chip.data_lns[3].state = PIN_LOW;
+//    sram_chip.data_lns[2].state = PIN_LOW;
+//    sram_chip.data_lns[1].state = PIN_LOW;
+//    sram_chip.data_lns[0].state = PIN_HIGH;
+//
+//
+//    sram_chip_update(&sram_chip);
+//
+//    time_t updated_cycles, current_cycle;
+//    time(&updated_cycles);
+//
+//    while (1) {
+//        time(&current_cycle);
+//        while (current_cycle - updated_cycles > CLK_FREQ) {
+//
+//
+//
+//
+//            updated_cycles += CLK_FREQ;
+//        }
+//
+//        time(&current_cycle);
+//    }
+//
+//    return 0;
+//}
+
+//void d_flip_flop_set_pin_state(struct d_flip_flop* flip_flop, uint8_t pin, uint8_t state)
+//{
+//    switch (pin) {
+//        case D_FLIP_FLOP_PIN_D:
+//            flip_flop->d = state;
+//            break;
+//        case D_FLIP_FLOP_PIN_E:
+//            flip_flop->e = state;
+//            break;
+//    }
+//}
+
+//if (flip_flop_a.q == PIN_LOW) {
+//    d_flip_flop_set_pin_state(&flip_flop_a, D_FLIP_FLOP_PIN_D, PIN_HIGH);
+//    if (flip_flop_a.e == PIN_HIGH) {
+//        d_flip_flop_set_pin_state(&flip_flop_a, D_FLIP_FLOP_PIN_E, PIN_LOW);
+//    }
+//}
+//else {
+//    d_flip_flop_set_pin_state(&flip_flop_a, D_FLIP_FLOP_PIN_D, PIN_LOW);
+//    if (flip_flop_a.e = PIN_LOW) {
+//        d_flip_flop_set_pin_state(&flip_flop_a, D_FLIP_FLOP_PIN_E, PIN_HIGH);
+//    }
+//}
